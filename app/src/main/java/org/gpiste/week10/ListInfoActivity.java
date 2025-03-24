@@ -1,10 +1,12 @@
 package org.gpiste.week10;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class ListInfoActivity extends AppCompatActivity {
     private TextView cityText;
@@ -23,10 +25,11 @@ public class ListInfoActivity extends AppCompatActivity {
         CarDataStorage storage = CarDataStorage.getInstance();
         String city = storage.getCity();
         int year = storage.getYear();
-        ArrayList<CarData> carData = storage.getCarDatas();
+        ArrayList<CarData> carData = storage.getCarData();
 
-        cityText.setText("Kaupunki: " + city);
-        yearText.setText("Vuosi: " + year);
+        cityText.setText("" + city);
+        yearText.setText("" + year);
+
 
         StringBuilder carInfo = new StringBuilder();
         int total = 0;
@@ -34,10 +37,11 @@ public class ListInfoActivity extends AppCompatActivity {
         for(CarData data : carData) {
             carInfo.append(data.getType()).append(": ").append(data.getAmount()).append("\n");
             total += data.getAmount();
-        }
 
+        }
         carInfo.append("\nKokonaismäärä: ").append(total);
 
         carInfoText.setText(carInfo.toString());
     }
 }
+

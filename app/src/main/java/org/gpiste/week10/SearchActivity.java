@@ -17,6 +17,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
 
 public class SearchActivity extends AppCompatActivity {
 
@@ -42,6 +43,7 @@ public class SearchActivity extends AppCompatActivity {
         Intent intent = new Intent(this, ListInfoActivity.class);
         startActivity(intent);
     }
+
     public void searchInfo(View view) {
         String yearString = yearEdit.getText().toString();
         String city = cityNameEdit.getText().toString();
@@ -50,63 +52,71 @@ public class SearchActivity extends AppCompatActivity {
             try {
                 int yearr = Integer.parseInt(yearString);
                 statusText.setText("Haetaan...");
-                getData(SearchActivity.this, city, yearr);
+
+                Executors.newSingleThreadExecutor().execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        getData(SearchActivity.this, city, yearr);
+                    }
+                });
+
             } catch (NumberFormatException e) {
-                statusText.setText("VIRHEEE");
+                statusText.setText("Virhe");
             }
         } else {
-            statusText.setText("SISHKSKVNESN");
+            statusText.setText("Yritä uudelleen");
         }
-
     }
+
     public boolean getData(Context context, String city, int year) {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode areas = null;
 
         try {
-            areas = objectMapper.readTree(new URL("https://pxdata.stat.fi:443/PxWeb/api/v1/fi/StatFin/mkan/statfin_mkan_pxt_11ic.px"));;
-
+            areas = objectMapper.readTree(new URL("https://pxdata.stat.fi:443/PxWeb/api/v1/fi/StatFin/mkan/statfin_mkan_pxt_11ic.px"));
         } catch (IOException e) {
             e.printStackTrace();
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     statusText.setText("Haku epäonnistui");
-                    return;
                 }
             });
+            return false;
         }
 
         ArrayList<String> areaText = new ArrayList<>();
         ArrayList<String> areaValues = new ArrayList<>();
 
-        for (JsonNode node : areas.get(0).get("valueTexts")) {
+        for (JsonNode node : areas.get("variables").get(0).get("valueTexts")) {
             areaText.add(node.asText());
         }
 
-        for (JsonNode node : areas.get(3).get("values")) {
+        for (JsonNode node : areas.get("variables").get(0).get("values")) {
             areaValues.add(node.asText());
         }
+
         String areaCode = null;
-        for (int i = 0; i < areas.size(); i++) {
-            if (areas.get(i).equals(city.toLowerCase())) {
+        for (int i = 0; i < areaText.size(); i++) {
+            if (areaText.get(i).equalsIgnoreCase(city)) {
                 areaCode = areaValues.get(i);
                 break;
             }
         }
 
-
         if (areaCode == null) {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    statusText.setText("Kaupunkia ei löytynyt");
+                    statusText.setText("Haku epäonnistui, kaupunkia ei olemassa tai se on kirjoitettu\n" +
+                            "väärin.");
                 }
             });
             return false;
         }
 
         try {
+            // Now, proceed with the HTTP request and get data for the given city and year
             URL url = new URL("https://pxdata.stat.fi:443/PxWeb/api/v1/fi/StatFin/mkan/statfin_mkan_pxt_11ic.px");
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod("POST");
@@ -114,31 +124,31 @@ public class SearchActivity extends AppCompatActivity {
             con.setRequestProperty("Accept", "application/json");
             con.setDoOutput(true);
 
-            JsonNode jsonInputString = objectMapper.readTree(context.getResources().openRawResource(R.raw.esimerkkihaku));
-
+            // Load the request body for the POST request
+            JsonNode jsonInputString = objectMapper.readTree(context.getResources().openRawResource(R.raw.info));
             byte[] input = objectMapper.writeValueAsBytes(jsonInputString);
             OutputStream os = con.getOutputStream();
             os.write(input, 0, input.length);
             os.close();
 
+
             BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"));
             StringBuilder response = new StringBuilder();
-
             String line;
-
             while ((line = br.readLine()) != null) {
                 response.append(line.trim());
-
             }
             br.close();
+
 
             JsonNode jsonResponse = objectMapper.readTree(response.toString());
             JsonNode values = jsonResponse.get("value");
 
-            CarDataStorage storage = CarDataStorage.getInstance();
 
+            CarDataStorage storage = CarDataStorage.getInstance();
             storage.setCity(city);
             storage.setYear(year);
+            storage.ClearData();
 
             for (int i = 0; i < values.size(); i++) {
                 int count = values.get(i).asInt();
@@ -146,15 +156,19 @@ public class SearchActivity extends AppCompatActivity {
                 storage.addCarData(cardata);
             }
 
+
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     statusText.setText("Haku onnistui!");
                 }
             });
+
+
             Intent intent = new Intent(context, ListInfoActivity.class);
             context.startActivity(intent);
             return true;
+
         } catch (IOException e) {
             e.printStackTrace();
             runOnUiThread(new Runnable() {

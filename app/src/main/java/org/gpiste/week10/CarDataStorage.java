@@ -9,11 +9,6 @@ public class CarDataStorage {
 
     private static CarDataStorage carDataStorage = null;
 
-    public CarDataStorage(String city, int year) {
-        this.city = city;
-        this.year = year;
-    }
-
     private CarDataStorage() {
         carDatas = new ArrayList<>();
 
@@ -35,7 +30,7 @@ public class CarDataStorage {
         return year;
     }
 
-    public ArrayList<CarData> getCarDatas() {
+    public ArrayList<CarData> getCarData() {
         return carDatas;
     }
 
@@ -49,5 +44,9 @@ public class CarDataStorage {
 
     public void setYear(int year) {
         this.year = year;
+    }
+
+    public void ClearData() {
+        carDatas.clear();
     }
 }
